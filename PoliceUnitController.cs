@@ -52,7 +52,7 @@ public class PoliceUnitController : UnitController
 			else
 			{
 				float dis = Distance( mTarget.transform.position, mPath.vectorPath[mPath.vectorPath.Count - 1] );
-				if ( mCurrentWayPoint >= mPath.vectorPath.Count || dis >= 3 )
+				if ( mCurrentWayPoint >= mPath.vectorPath.Count || dis >= 0 )
 				{
 					Debug.Log( "End of Path reached! This should be recalculated!" );
 					mSeeker.StartPath( transform.position, mTarget.transform.position, OnPathComplete );
