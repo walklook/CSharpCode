@@ -33,8 +33,8 @@ public class TileNavigation : MonoBehaviour
 	}
 	
 	public const float TILE_SIZE = 512.0f; //2000.0f;
-    public const string TERRAIN_NAME = "Terrain_sand_1024_test_128hightmap_resolution_Slice_";
-    public const string SCENE_NAME = "Terrain_sand_";
+	public const string TERRAIN_NAME = "Terrain_sand_1024_test_128hightmap_resolution_Slice_";
+	public const string SCENE_NAME = "Terrain_sand_";
 	
 	private float mHalfFOV = 30.0f;
 	private float mCameraMinForward;
@@ -86,12 +86,12 @@ public class TileNavigation : MonoBehaviour
 		UpdateCameraTile();
 		
 		Vector3 cameraPosition = camera.transform.position;
-		float viewHeight1 = cameraPosition.y * Mathf.Tan( mCameraMinForward );
-		float viewHeight2 = cameraPosition.y * Mathf.Tan( mCameraMaxForward );
+		float viewHeight1 = cameraPosition.y * Mathf.Tan( mCameraMinForward ); // the top edge
+		float viewHeight2 = cameraPosition.y * Mathf.Tan( mCameraMaxForward ); // the bottom edge
 		float viewWidth = cameraPosition.y / Mathf.Cos( mCameraMaxForward ) * Mathf.Tan( mHalfHorizontalFOV );
 		
-		float viewHeightCompensator1 = 40.0f;
-		float viewHeightCompensator2 = 40.0f;
+		float viewHeightCompensator1 = 40.0f; // the compensator for the top edge
+		float viewHeightCompensator2 = 40.0f; // the compensator for the bottom edge
 		float viewWidthCompensator = 40.0f;
 		
 		sTopSide = cameraPosition.x - viewHeight2 - viewHeightCompensator2 - TILE_SIZE;
@@ -99,7 +99,7 @@ public class TileNavigation : MonoBehaviour
 		sLeftSide = cameraPosition.z - viewWidth - viewWidthCompensator - TILE_SIZE;
 		sRightSide = cameraPosition.z + viewWidth + viewWidthCompensator + TILE_SIZE;
 		
-		/*//////////////////
+		/*//(column, row)//
 		        |
 		 -1, 1	|  1, 1
 				|
@@ -125,7 +125,7 @@ public class TileNavigation : MonoBehaviour
 				
 				if ( !IsExistInScene( col, row ) )
 				{
-                    Debug.Log( "add terrain at row = " + row + ", col = " + col );
+					Debug.Log( "add terrain at row = " + row + ", col = " + col );
 					StartCoroutine( AddTerrainCoroutine( col, row ) );
 					isBreak = true;
 				}
@@ -177,10 +177,10 @@ public class TileNavigation : MonoBehaviour
 	{
 		mTerrainNum++;
 		
-        string terrainName = "";
-        string sceneName = "";
+		string terrainName = "";
+		string sceneName = "";
 		GetTerrainName( ref terrainName, ref sceneName, col, row );
-        Debug.Log( "terrain name = " + terrainName + ", scene name = " + sceneName );
+		Debug.Log( "terrain name = " + terrainName + ", scene name = " + sceneName );
 
 #if LOAD_ADDITIVE_ASYNC
 		lock ( sTerrainRecords )
@@ -189,7 +189,7 @@ public class TileNavigation : MonoBehaviour
 			tr.col = col;
 			tr.row = row;
 			sTerrainRecords.Add( tr );
-            Debug.Log( "add terrain record col = " + col + ", row = " + row );
+			Debug.Log( "add terrain record col = " + col + ", row = " + row );
 		}
 		TerrainAttachment ta = new TerrainAttachment();
 		// can't add terrain now......
@@ -205,8 +205,8 @@ public class TileNavigation : MonoBehaviour
 			sTerrainTasks.Add( tt );
 		}
 		AsyncOperation async = Application.LoadLevelAdditiveAsync( sceneName );
-        yield return async;
-        Debug.Log("Loading complete");
+		yield return async;
+		Debug.Log("Loading complete");
 #else
 		float z = ( col > 0 ? col - 1 : col ) * TILE_SIZE;
 		float x = -( row < 0 ? row + 1 : row ) * TILE_SIZE;
@@ -226,29 +226,32 @@ public class TileNavigation : MonoBehaviour
 		//Resources.UnloadUnusedAssets();
 	}
 	
+	// get the terrain(scene) name according to its col and row index.
 	void GetTerrainName( ref string terrainName, ref string sceneName, int col, int row )
 	{
-        Debug.Log( "GetTerrainName before : col = " + col + ", row = " + row );
+		Debug.Log( "GetTerrainName before : col = " + col + ", row = " + row );
+		int firstIndex = 1;
+		int secondIndex = 1;
 		if ( col % 2 == 0 )
 		{
 			if ( col > 0 )
 			{
-				col = 2;
+				firstIndex = 2;
 			}
 			else
 			{
-				col = 1;
+				firstIndex = 1;
 			}
 		}
 		else
 		{
 			if ( col > 0 )
 			{
-				col = 1;
+				firstIndex = 1;
 			}
 			else
 			{
-				col = 2;
+				firstIndex = 2;
 			}
 		}
 		
@@ -256,29 +259,28 @@ public class TileNavigation : MonoBehaviour
 		{
 			if ( row > 0 )
 			{
-				row = 1;
+				secondIndex = 1;
 			}
 			else
 			{
-				row = 2;
+				secondIndex = 2;
 			}
 		}
 		else
 		{
 			if ( row > 0 )
 			{
-				row = 2;
+				secondIndex = 2;
 			}
 			else
 			{
-				row = 1;
+				secondIndex = 1;
 			}
 		}
+		Debug.Log( "GetTerrainName after : firstIndex = " + firstIndex + ", secondIndex = " + secondIndex );
 		
-        Debug.Log( "GetTerrainName after : col = " + col + ", row = " + row );
-		
-        terrainName = TERRAIN_NAME + col + "_" + row;
-        sceneName = SCENE_NAME + col + "_" + row;
+		terrainName = TERRAIN_NAME + firstIndex + "_" + secondIndex;
+		sceneName = SCENE_NAME + firstIndex + "_" + secondIndex;
 		
 	}
 	
