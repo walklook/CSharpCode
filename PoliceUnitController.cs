@@ -3,6 +3,7 @@ using System.Collections;
 
 public class PoliceUnitController : UnitController
 {
+	const float DISTANCE_CLOSE_ENOUGH = 0.05f;
 	private Vector3 mOriginalPoint = Vector3.zero;
 	
 	// Use this for initialization
@@ -52,7 +53,7 @@ public class PoliceUnitController : UnitController
 			else
 			{
 				float dis = Distance( mTarget.transform.position, mPath.vectorPath[mPath.vectorPath.Count - 1] );
-				if ( mCurrentWayPoint >= mPath.vectorPath.Count || dis >= 3 )
+				if ( mCurrentWayPoint >= mPath.vectorPath.Count || dis >= 0 )
 				{
 					Debug.Log( "End of Path reached! This should be recalculated!" );
 					mSeeker.StartPath( transform.position, mTarget.transform.position, OnPathComplete );
@@ -122,9 +123,8 @@ public class PoliceUnitController : UnitController
 				}
 			}
 			
-			if ( Vector3.Distance( mOriginalPoint, transform.position ) <= 0.05f )
+			if ( Vector3.Distance( mOriginalPoint, transform.position ) <= DISTANCE_CLOSE_ENOUGH ) // it is small enough for distance here.
 			{
-				//SetState( UnitController.UnitState.PATROLING );
 				SetState( UnitController.UnitState.DISAPPEAR );
 			}
 			
