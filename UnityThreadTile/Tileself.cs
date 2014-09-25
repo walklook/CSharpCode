@@ -65,13 +65,9 @@ public class Tileself : MonoBehaviour
 						break;
 					}
 				}
-				
-				if ( i == TileNavigation.sTerrainRecords.Count )
-				{
-                    Debug.LogError( "Delete an unrecorded terrain col = " + mCol + ", row = " + mRow );
-				}
 			}
-				
+			
+			// Because the purpose of multithread loading terrain is for memory limit, so don't cache them. besides this, every terrain object may have different state in games.	
 			DestroyImmediate( gameObject );
 			Resources.UnloadUnusedAssets();
 		}
