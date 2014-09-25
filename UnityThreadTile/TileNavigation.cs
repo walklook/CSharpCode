@@ -3,38 +3,43 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 public class TileNavigation : MonoBehaviour
 {
-	public struct TerrainRecord
-	{
-		public int col;
-		public int row;
-		
-		public TerrainRecord( int col, int row )
-		{
-			this.col = col;
-			this.row = row;
-		}
-	}
-	
+    public struct TerrainIndex
+    {
+        public int col;
+        public int row;
+
+        public TerrainIndex( int col, int row )
+        {
+            this.col = col;
+            this.row = row;
+        }
+    }
+
 	struct TerrainAttachment
 	{
 		public GameObject terrain;
 		public List<GameObject> attachments;
 	}
-	
+
 	public struct TerrainTask
 	{
 		public int col;
 		public int row;
 		public string terrainName;
 	}
-	
+
+	public const int TERRAIN_SLICED_COLLUMN = 2;
+	public const int TERRAIN_SLICED_ROW = 2;
 	public const float TILE_SIZE = 512.0f; //2000.0f;
-	public const string TERRAIN_NAME = "Terrain_sand_1024_test_128hightmap_resolution_Slice_";
-	public const string SCENE_NAME = "Terrain_sand_";
+    public const string TERRAIN_NAME = "Terrain_sand_1024_test_128hightmap_resolution_Slice_{0:G}_{1:G}";
+    public const string SCENE_NAME = "Terrain_sand_withman_{0:G}_{1:G}";
+    private StringBuilder terrainName = new StringBuilder( 50 );
+    private StringBuilder sceneName = new StringBuilder( 20 );
 	
 	private float mHalfFOV = 30.0f;
 	private float mCameraMinForward;
@@ -49,34 +54,29 @@ public class TileNavigation : MonoBehaviour
 	public static float sRightSide;
 	
 	public static List<TerrainTask> sTerrainTasks = new List<TerrainTask>();
-	public static List<TerrainRecord> sTerrainRecords;
+    public static ArrayList sTerrainRecords;
 	private List<TerrainAttachment> mTerrainAttachments;
 	private int mTerrainNum = 1;
 	
 	// Use this for initialization
 	void Start()
 	{
-		mHalfFOV = camera.fieldOfView * 0.5f;
+        mHalfFOV = camera.fieldOfView * 0.5f; // half
 		mHalfHorizontalFOV = mHalfFOV * camera.aspect;
 		mHalfHorizontalFOV = Mathf.Deg2Rad * mHalfHorizontalFOV;
 		mCameraMinForward = Vector3.Angle( camera.transform.forward, -Vector3.up );
 		mCameraMinForward -= mHalfFOV;
 		mCameraMinForward = Mathf.Deg2Rad * mCameraMinForward;
-		mCameraMaxForward = mCameraMinForward + Mathf.Deg2Rad * camera.fov;
-		
-		sTerrainRecords = new List<TerrainRecord>();
-		TerrainRecord tr = new TerrainRecord();
+        mCameraMaxForward = mCameraMinForward + Mathf.Deg2Rad * camera.fieldOfView;
+
+        sTerrainRecords = ArrayList.Synchronized( new ArrayList() );
 		UpdateCameraTile();
-		tr.col = mCameraCol;
-		tr.row = mCameraRow;
+        //tr.attachments.Add( GameObject.Find( "bird1" ) );
+        sTerrainRecords.Add( new TerrainIndex( mCameraCol, mCameraRow ) );
 		mTerrainAttachments = new List<TerrainAttachment>();
 		TerrainAttachment ta = new TerrainAttachment();
 		ta.terrain = GameObject.Find( "Terrain_original" );
-		ta.attachments = new List<GameObject>( 4 );
-		//tr.attachments.Add( GameObject.Find( "Daylight Water" ) );
-		//tr.attachments.Add( GameObject.Find( "bird1" ) );
-		//tr.attachments.Add( GameObject.Find( "bird2" ) );
-		sTerrainRecords.Add( tr );
+		ta.attachments = new List<GameObject>();
 		mTerrainAttachments.Add( ta );
 	}
 	
@@ -86,20 +86,20 @@ public class TileNavigation : MonoBehaviour
 		UpdateCameraTile();
 		
 		Vector3 cameraPosition = camera.transform.position;
-		float viewHeight1 = cameraPosition.y * Mathf.Tan( mCameraMinForward ); // the top edge
-		float viewHeight2 = cameraPosition.y * Mathf.Tan( mCameraMaxForward ); // the bottom edge
+        float viewHeight1 = cameraPosition.y * Mathf.Tan( mCameraMinForward ); // the top edge
+        float viewHeight2 = cameraPosition.y * Mathf.Tan( mCameraMaxForward ); // the bottom edge
 		float viewWidth = cameraPosition.y / Mathf.Cos( mCameraMaxForward ) * Mathf.Tan( mHalfHorizontalFOV );
 		
-		float viewHeightCompensator1 = 40.0f; // the compensator for the top edge
-		float viewHeightCompensator2 = 40.0f; // the compensator for the bottom edge
-		float viewWidthCompensator = 40.0f;
+        float viewHeightCompensator1 = 40.0f; // the compensator for the top edge
+        float viewHeightCompensator2 = 40.0f; // the compensator for the bottom edge
+        float viewWidthCompensator = 40.0f; // the compensator for width
 		
 		sTopSide = cameraPosition.x - viewHeight2 - viewHeightCompensator2 - TILE_SIZE;
 		sBottomSide = cameraPosition.x - viewHeight1 + viewHeightCompensator1 + TILE_SIZE;
 		sLeftSide = cameraPosition.z - viewWidth - viewWidthCompensator - TILE_SIZE;
 		sRightSide = cameraPosition.z + viewWidth + viewWidthCompensator + TILE_SIZE;
 		
-		/*//(column, row)//
+        /*//(column, row)//
 		        |
 		 -1, 1	|  1, 1
 				|
@@ -109,23 +109,23 @@ public class TileNavigation : MonoBehaviour
 				|
 		//////////////////*/
 		
-		TerrainRecord leftTopTile = GetTileInfo( cameraPosition.x - viewHeight2 - viewHeightCompensator2, cameraPosition.z - viewWidth - viewWidthCompensator );
-		TerrainRecord rightTopTile = GetTileInfo( cameraPosition.x - viewHeight2 - viewHeightCompensator2, cameraPosition.z + viewWidth + viewWidthCompensator );
-		TerrainRecord leftBottomTile = GetTileInfo( cameraPosition.x - viewHeight1 + viewHeightCompensator1, cameraPosition.z - viewWidth - viewWidthCompensator );
-		TerrainRecord rightBottomTile = GetTileInfo( cameraPosition.x - viewHeight1 + viewHeightCompensator1, cameraPosition.z + viewWidth + viewWidthCompensator );
+        TerrainIndex leftTopTile = GetTileInfo( cameraPosition.x - viewHeight2 - viewHeightCompensator2, cameraPosition.z - viewWidth - viewWidthCompensator );
+        TerrainIndex rightTopTile = GetTileInfo( cameraPosition.x - viewHeight2 - viewHeightCompensator2, cameraPosition.z + viewWidth + viewWidthCompensator );
+        TerrainIndex leftBottomTile = GetTileInfo( cameraPosition.x - viewHeight1 + viewHeightCompensator1, cameraPosition.z - viewWidth - viewWidthCompensator );
+        TerrainIndex rightBottomTile = GetTileInfo( cameraPosition.x - viewHeight1 + viewHeightCompensator1, cameraPosition.z + viewWidth + viewWidthCompensator );
 		
-		for ( int row = leftTopTile.row; row >= leftBottomTile.row; row-- )
+        for ( int row = leftTopTile.row; row >= leftBottomTile.row; row-- )
 		{
-			if ( row == 0 ) continue;
+			if ( row == 0 ) 
+                continue;
 			
 			bool isBreak = false;
-			for ( int col = leftTopTile.col; col <= rightTopTile.col; col++ )
+            for ( int col = leftTopTile.col; col <= rightTopTile.col; col++ )
 			{
 				if ( col == 0 ) continue;
 				
 				if ( !IsExistInScene( col, row ) )
 				{
-					Debug.Log( "add terrain at row = " + row + ", col = " + col );
 					StartCoroutine( AddTerrainCoroutine( col, row ) );
 					isBreak = true;
 				}
@@ -144,8 +144,8 @@ public class TileNavigation : MonoBehaviour
 	{
 		for ( int i = 0; i < sTerrainRecords.Count; i++ )
 		{
-			TerrainRecord tr = (TerrainRecord)sTerrainRecords[i];
-			if ( tr.col == col && tr.row == row )
+            TerrainIndex tr = (TerrainIndex)sTerrainRecords[i];
+            if ( tr.col == col && tr.row == row )
 			{
 				return true;
 			}
@@ -154,14 +154,14 @@ public class TileNavigation : MonoBehaviour
 		return false;
 	}
 	
-	TerrainRecord GetTileInfo( float x, float z )
+    TerrainIndex GetTileInfo( float x, float z )
 	{
 		float rowX = x > 0 ? x + TILE_SIZE : x - TILE_SIZE;
 		int row = -(int)( rowX / TILE_SIZE );
 		float colZ = z > 0 ? z + TILE_SIZE : z - TILE_SIZE;
 		int col = (int)( colZ / TILE_SIZE );
 		
-		return new TerrainRecord( col, row );
+        return new TerrainIndex( col, row );
 	}
 	
 	void UpdateCameraTile()
@@ -177,22 +177,15 @@ public class TileNavigation : MonoBehaviour
 	{
 		mTerrainNum++;
 		
-		string terrainName = "";
-		string sceneName = "";
-		GetTerrainName( ref terrainName, ref sceneName, col, row );
-		Debug.Log( "terrain name = " + terrainName + ", scene name = " + sceneName );
+		GetTerrainName( col, row );
 
 #if LOAD_ADDITIVE_ASYNC
-		lock ( sTerrainRecords )
-		{
-			TerrainRecord tr = new TerrainRecord();
-			tr.col = col;
-			tr.row = row;
-			sTerrainRecords.Add( tr );
-			Debug.Log( "add terrain record col = " + col + ", row = " + row );
-		}
+        TerrainIndex tr = new TerrainIndex();
+        tr.col = col;
+        tr.row = row;
+		sTerrainRecords.Add( tr );
+
 		TerrainAttachment ta = new TerrainAttachment();
-		// can't add terrain now......
 		ta.attachments = new List<GameObject>( 4 );
 		mTerrainAttachments.Add( ta );
 		
@@ -201,17 +194,17 @@ public class TileNavigation : MonoBehaviour
 			TerrainTask tt = new TerrainTask();
 			tt.col = col;
 			tt.row = row;
-			tt.terrainName = terrainName;
+			tt.terrainName = terrainName.ToString();
 			sTerrainTasks.Add( tt );
 		}
-		AsyncOperation async = Application.LoadLevelAdditiveAsync( sceneName );
-		yield return async;
-		Debug.Log("Loading complete");
+        AsyncOperation async = Application.LoadLevelAdditiveAsync( sceneName.ToString() );
+        yield return async;
 #else
 		float z = ( col > 0 ? col - 1 : col ) * TILE_SIZE;
 		float x = -( row < 0 ? row + 1 : row ) * TILE_SIZE;
 		
-		Object t = Resources.Load( terrainName );
+        // for memory limitation, don't cache anything.
+        Object t = Resources.Load( terrainName.ToString() ); // the prefab has been deleted from project by me, so it won't work here.
 		TerrainRecord tr = new TerrainRecord();
 		tr.col = col;
 		tr.row = row;
@@ -223,65 +216,56 @@ public class TileNavigation : MonoBehaviour
 		t = null;
 		mTerrainAttachments.Add( ta );
 #endif
-		//Resources.UnloadUnusedAssets();
 	}
 	
-	// get the terrain(scene) name according to its col and row index.
-	void GetTerrainName( ref string terrainName, ref string sceneName, int col, int row )
+	void GetTerrainName( int col, int row )
 	{
-		Debug.Log( "GetTerrainName before : col = " + col + ", row = " + row );
-		int firstIndex = 1;
-		int secondIndex = 1;
-		if ( col % 2 == 0 )
+		int terrainCol = col % TERRAIN_SLICED_COLLUMN;
+		int terrainRow = row % TERRAIN_SLICED_ROW;
+
+		// the mapping function from col/row to the sliced terrain's index(terrainCol/terrainRow) is a piecewise function. 
+		if ( terrainCol == 0 )
 		{
 			if ( col > 0 )
 			{
-				firstIndex = 2;
+				terrainCol = TERRAIN_SLICED_COLLUMN;
 			}
 			else
 			{
-				firstIndex = 1;
+				terrainCol = 1;
 			}
 		}
 		else
 		{
-			if ( col > 0 )
+			if ( col < 0 )
 			{
-				firstIndex = 1;
-			}
-			else
-			{
-				firstIndex = 2;
+				terrainCol = TERRAIN_SLICED_COLLUMN + 1 - (int)Mathf.Abs( terrainCol );
 			}
 		}
 		
-		if ( row % 2 == 0 )
+		if ( terrainRow == 0 )
 		{
 			if ( row > 0 )
 			{
-				secondIndex = 1;
+				terrainRow = TERRAIN_SLICED_ROW;
 			}
 			else
 			{
-				secondIndex = 2;
+				terrainRow = 1;
 			}
 		}
 		else
 		{
-			if ( row > 0 )
+			if ( row < 0 )
 			{
-				secondIndex = 2;
-			}
-			else
-			{
-				secondIndex = 1;
+				terrainRow = TERRAIN_SLICED_ROW + 1 - (int)Mathf.Abs( terrainRow );
 			}
 		}
-		Debug.Log( "GetTerrainName after : firstIndex = " + firstIndex + ", secondIndex = " + secondIndex );
 		
-		terrainName = TERRAIN_NAME + firstIndex + "_" + secondIndex;
-		sceneName = SCENE_NAME + firstIndex + "_" + secondIndex;
-		
+        terrainName.Length = 0; // terrainName.Remove( 0, terrainName.Length);
+        sceneName.Length = 0;
+		terrainName.AppendFormat( TERRAIN_NAME, terrainCol, terrainRow );
+		sceneName.AppendFormat( SCENE_NAME, terrainCol, terrainRow );
 	}
 	
 }
